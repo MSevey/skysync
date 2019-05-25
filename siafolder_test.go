@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NebulousLabs/Sia/api"
+	"gitlab.com/NebulousLabs/Sia/api"
 )
 
 var testFiles = []string{"test", "testdir/testfile3.txt", "testdir/testdir2/testfile4.txt", "testfile1.txt", "testfile2.txt"}

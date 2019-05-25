@@ -1,26 +1,98 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 
-	"github.com/NebulousLabs/Sia/api"
+	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
 )
 
-func main() {
-	if len(os.Args) == 1 {
-		fmt.Println("usage: siasync [folder]")
-		os.Exit(1)
+var (
+	archive           bool
+	debug             bool
+	prefix            string
+	include           string
+	includeExtensions []string
+	exclude           string
+	excludeExtensions []string
+)
+
+func Usage() {
+	fmt.Printf(`usage: siasync <flags> <directory-to-sync>
+  for example: ./siasync -password abcd123 /tmp/sync/to/sia
+
+`)
+	flag.PrintDefaults()
+}
+
+func testConnection(sc *sia.Client) {
+	version, err := sc.DaemonVersionGet()
+	if err != nil {
+		panic(err)
 	}
-	sf, err := NewSiafolder(os.Args[1], api.NewClient("localhost:9980", ""))
+	log.Println("Connected to Sia ", version.Version)
+
+	// Check Allowance
+	rg, err := sc.RenterGet()
+	if err != nil {
+		log.Fatal("Could not get renter info:", err)
+	}
+	if rg.Settings.Allowance.Funds.IsZero() {
+		log.Fatal("Cannot upload: No allowance available")
+	}
+
+	// Check Contracts
+	rc, err := sc.RenterDisabledContractsGet()
+	if err != nil {
+		log.Fatal("Could not get renter contracts", err)
+	}
+	if len(rc.ActiveContracts) == 0 {
+		log.Fatal("No active contracts")
+	}
+	var GoodForUpload = 0
+	for _, c := range rc.ActiveContracts {
+		if c.GoodForUpload {
+			GoodForUpload += 1
+		}
+	}
+	log.Println(GoodForUpload, " contracts are ready for upload")
+
+}
+
+func main() {
+	flag.Usage = Usage
+	address := flag.String("address", "127.0.0.1:9980", "Sia's API address")
+	password := flag.String("password", "", "Sia's API password")
+	agent := flag.String("agent", "Sia-Agent", "Sia agent")
+	flag.BoolVar(&archive, "archive", false, "Files will not be removed from Sia, even if they are deleted locally")
+	flag.BoolVar(&debug, "debug", false, "Enable debug mode. Warning: generates a lot of output.")
+	flag.StringVar(&prefix, "subfolder", "siasync", "Folder on Sia to sync files too")
+	flag.StringVar(&include, "include", "", "Comma separated list of file extensions to copy, all other files will be ignored.")
+	flag.StringVar(&include, "exclude", "", "Comma separated list of file extensions to skip, all other files will be copied.")
+
+	flag.Parse()
+
+	sc := sia.New(*address)
+	sc.Password = *password
+	sc.UserAgent = *agent
+	directory := os.Args[len(os.Args)-1]
+
+	// Verify that we can talk to Sia and have valid contracts.
+	testConnection(sc)
+
+	includeExtensions = strings.Split(include, ",")
+
+	sf, err := NewSiafolder(directory, sc)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer sf.Close()
 
-	log.Println("watching for changes to ", os.Args[1])
+	log.Println("watching for changes to ", directory)
 
 	done := make(chan os.Signal)
 	signal.Notify(done, os.Interrupt)

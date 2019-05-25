@@ -2,27 +2,25 @@ package main
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/fsnotify/fsnotify"
+	"gitlab.com/NebulousLabs/Sia/modules"
 
-	"github.com/NebulousLabs/Sia/api"
+	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
 )
-
-type apiClient interface {
-	Get(string, interface{}) error
-	Post(string, string, interface{}) error
-}
 
 // SiaFolder is a folder that is synchronized to a Sia node.
 type SiaFolder struct {
 	path    string
-	client  apiClient
+	client  *sia.Client
+	archive bool
+	prefix  string
 	watcher *fsnotify.Watcher
 
 	files map[string]string // files is a map of file paths to SHA256 checksums, used to reconcile file changes
@@ -30,9 +28,44 @@ type SiaFolder struct {
 	closeChan chan struct{}
 }
 
+func contains(a []string, x string) bool {
+	for _, n := range a {
+		if x == n {
+			return true
+		}
+	}
+	return false
+}
+
+// checkFile checks if a file's extension is included or excluded
+func checkFile(path string) (bool, error) {
+	if include != "" {
+		if contains(includeExtensions, strings.TrimLeft(filepath.Ext(path), ".")) {
+			if debug {
+				fmt.Println("Found extension in include flag")
+			}
+			return true, nil
+		} else {
+			if debug {
+				fmt.Println("Extension not found in include flag")
+			}
+			return false, nil
+		}
+	}
+
+	if exclude != "" {
+		if contains(excludeExtensions, strings.TrimLeft(filepath.Ext(path), ".")) {
+			return false, nil
+		} else {
+			return true, nil
+		}
+	}
+	return true, nil
+}
+
 // NewSiafolder creates a new SiaFolder using the provided path and api
 // address.
-func NewSiafolder(path string, client apiClient) (*SiaFolder, error) {
+func NewSiafolder(path string, client *sia.Client) (*SiaFolder, error) {
 	sf := &SiaFolder{}
 
 	abspath, err := filepath.Abs(path)
@@ -44,15 +77,8 @@ func NewSiafolder(path string, client apiClient) (*SiaFolder, error) {
 	sf.files = make(map[string]string)
 	sf.closeChan = make(chan struct{})
 	sf.client = client
-
-	var contracts api.RenterContracts
-	err = sf.client.Get("/renter/contracts", &contracts)
-	if err != nil {
-		return nil, err
-	}
-	if len(contracts.Contracts) == 0 {
-		return nil, errors.New("you must have formed contracts to upload to Sia")
-	}
+	sf.archive = archive
+	sf.prefix = prefix
 
 	// watch for file changes
 	watcher, err := fsnotify.NewWatcher()
@@ -102,6 +128,14 @@ func NewSiafolder(path string, client apiClient) (*SiaFolder, error) {
 	return sf, nil
 }
 
+func newSiaPath(path string) (siaPath modules.SiaPath) {
+	siaPath, err := modules.NewSiaPath(path)
+	if err != nil {
+		panic(err)
+	}
+	return siaPath
+}
+
 // checksumFile returns a sha256 checksum of a given file on disk.
 func checksumFile(path string) (string, error) {
 	f, err := os.Open(path)
@@ -135,27 +169,41 @@ func (sf *SiaFolder) eventWatcher() {
 
 			// WRITE event, checksum the file and re-upload it if it has changed
 			if event.Op&fsnotify.Write == fsnotify.Write {
-				err = sf.handleFileWrite(filename)
+				goodForWrite, err := checkFile(filename)
 				if err != nil {
 					log.Println(err)
+				}
+				if goodForWrite {
+					err = sf.handleFileWrite(filename)
+					if err != nil {
+						log.Println(err)
+					}
 				}
 			}
 
 			// REMOVE event
-			if event.Op&fsnotify.Remove == fsnotify.Remove {
-				log.Println("file removal detected, removing", filename)
-				err = sf.handleRemove(filename)
-				if err != nil {
-					log.Println(err)
+			if sf.archive == false {
+				if event.Op&fsnotify.Remove == fsnotify.Remove {
+					log.Println("file removal detected, removing", filename)
+					err = sf.handleRemove(filename)
+					if err != nil {
+						log.Println(err)
+					}
 				}
 			}
 
 			// CREATE event
 			if event.Op&fsnotify.Create == fsnotify.Create {
-				log.Println("file creation detected, uploading", filename)
-				err = sf.handleCreate(filename)
+				goodForWrite, err := checkFile(filename)
 				if err != nil {
 					log.Println(err)
+				}
+				if goodForWrite {
+					log.Println("file creation detected, uploading", filename)
+					err = sf.handleCreate(filename)
+					if err != nil {
+						log.Println(err)
+					}
 				}
 			}
 
@@ -178,9 +226,11 @@ func (sf *SiaFolder) handleFileWrite(file string) error {
 	if exists && oldChecksum != checksum {
 		log.Printf("change in %v detected, reuploading..\n", file)
 		sf.files[file] = checksum
-		err = sf.handleRemove(file)
-		if err != nil {
-			return err
+		if !sf.archive {
+			err = sf.handleRemove(file)
+			if err != nil {
+				return err
+			}
 		}
 		err = sf.handleCreate(file)
 		if err != nil {
@@ -208,7 +258,8 @@ func (sf *SiaFolder) handleCreate(file string) error {
 	if err != nil {
 		return fmt.Errorf("error getting relative path to upload: %v\n", err)
 	}
-	err = sf.client.Post(fmt.Sprintf("/renter/upload/%v", relpath), fmt.Sprintf("source=%v", abspath), nil)
+
+	err = sf.client.RenterUploadPost(abspath, newSiaPath(filepath.Join(prefix, relpath)), 10, 30)
 	if err != nil {
 		return fmt.Errorf("error uploading %v: %v\n", file, err)
 	}
@@ -226,7 +277,8 @@ func (sf *SiaFolder) handleRemove(file string) error {
 	if err != nil {
 		return fmt.Errorf("error getting relative path to remove: %v\n", err)
 	}
-	err = sf.client.Post(fmt.Sprintf("/renter/delete/%v", relpath), "", nil)
+
+	err = sf.client.RenterDeletePost(newSiaPath(filepath.Join(prefix, relpath)))
 	if err != nil {
 		return fmt.Errorf("error removing %v: %v\n", file, err)
 	}
@@ -237,26 +289,31 @@ func (sf *SiaFolder) handleRemove(file string) error {
 // uploadNonExisting runs once and performs any uploads required to ensure
 // every file in files is uploaded to the Sia node.
 func (sf *SiaFolder) uploadNonExisting() error {
-	var renterFiles api.RenterFiles
-	err := sf.client.Get("/renter/files", &renterFiles)
+	//		var renterFiles api.RenterFiles
+	renterFiles, err := sf.client.RenterFilesGet(true)
 	if err != nil {
 		return err
 	}
 
 	for file := range sf.files {
-		relpath, err := filepath.Rel(sf.path, file)
+		goodForWrite, err := checkFile(filepath.Clean(file))
 		if err != nil {
-			return err
+			log.Println(err)
 		}
-		exists := false
-		for _, siafile := range renterFiles.Files {
-			if siafile.SiaPath == relpath {
-				exists = true
+		if goodForWrite {
+			relpath, err := filepath.Rel(sf.path, file)
+			if err != nil {
+				return err
 			}
-		}
-
-		if !exists {
-			sf.handleCreate(file)
+			exists := false
+			for _, siafile := range renterFiles.Files {
+				if siafile.SiaPath == newSiaPath(relpath) {
+					exists = true
+				}
+			}
+			if !exists {
+				sf.handleCreate(file)
+			}
 		}
 	}
 

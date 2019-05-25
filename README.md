@@ -1,6 +1,6 @@
 # siasync
 
-Siasync is a simple utility that syncs an on-disk folder to [Sia](https://github.com/NebulousLabs/Sia), similarly to how dropbox works. Currently this is a very simple command-line program.
+Siasync is a simple utility that syncs a local folder to [Sia](https://gitlab.com/NebulousLabs/Sia).
 
 ## Usage
 
@@ -10,6 +10,17 @@ First, you must create a Sia node and form contracts with hosts. Then, simply
 
 siasync will upload every file in that directory to sia and continuously sync, until stopped.
 
+## Building from Source
+Siasync is written in Go, you have have a working Go installation before
+attempting to build Siasync from source.
+
+go get the Siasync dependencies:
+
+`make dependencies`
+
+build Siasync
+
+`make all`
 
 ## License
 
