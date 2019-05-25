@@ -1,6 +1,4 @@
-# [![Siasync
-Logo](https://i.imgur.com/bUJTPqU.png)](https://medium.com/@tbenz9/introducing-siasync-27452e90682f)
-Siasync v1.0
+# [![Siasync Logo](https://i.imgur.com/bUJTPqU.png)](https://medium.com/@tbenz9/introducing-siasync-27452e90682f) Siasync v1.0
 
 Siasync is a simple utility that syncs a local folder to [Sia](https://gitlab.com/NebulousLabs/Sia).
 
