@@ -43,7 +43,7 @@ build Siasync dependencies:
 
 build Siasync:
 
-`make all`
+`make`
 
 ## License
 

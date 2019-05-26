@@ -28,6 +28,7 @@ type SiaFolder struct {
 	closeChan chan struct{}
 }
 
+// contains checks if a string exists in a []strings.
 func contains(a []string, x string) bool {
 	for _, n := range a {
 		if x == n {
@@ -38,6 +39,7 @@ func contains(a []string, x string) bool {
 }
 
 // checkFile checks if a file's extension is included or excluded
+// included takes precedence over excluded.
 func checkFile(path string) (bool, error) {
 	if include != "" {
 		if contains(includeExtensions, strings.TrimLeft(filepath.Ext(path), ".")) {
@@ -166,13 +168,13 @@ func (sf *SiaFolder) eventWatcher() {
 				sf.watcher.Add(filename)
 				continue
 			}
+			goodForWrite, err := checkFile(filename)
+			if err != nil {
+				log.Println(err)
+			}
 
 			// WRITE event, checksum the file and re-upload it if it has changed
 			if event.Op&fsnotify.Write == fsnotify.Write {
-				goodForWrite, err := checkFile(filename)
-				if err != nil {
-					log.Println(err)
-				}
 				if goodForWrite {
 					err = sf.handleFileWrite(filename)
 					if err != nil {
@@ -184,20 +186,18 @@ func (sf *SiaFolder) eventWatcher() {
 			// REMOVE event
 			if sf.archive == false {
 				if event.Op&fsnotify.Remove == fsnotify.Remove {
-					log.Println("file removal detected, removing", filename)
-					err = sf.handleRemove(filename)
-					if err != nil {
-						log.Println(err)
+					if goodForWrite {
+						log.Println("file removal detected, removing", filename)
+						err = sf.handleRemove(filename)
+						if err != nil {
+							log.Println(err)
+						}
 					}
 				}
 			}
 
 			// CREATE event
 			if event.Op&fsnotify.Create == fsnotify.Create {
-				goodForWrite, err := checkFile(filename)
-				if err != nil {
-					log.Println(err)
-				}
 				if goodForWrite {
 					log.Println("file creation detected, uploading", filename)
 					err = sf.handleCreate(filename)
@@ -289,7 +289,6 @@ func (sf *SiaFolder) handleRemove(file string) error {
 // uploadNonExisting runs once and performs any uploads required to ensure
 // every file in files is uploaded to the Sia node.
 func (sf *SiaFolder) uploadNonExisting() error {
-	//		var renterFiles api.RenterFiles
 	renterFiles, err := sf.client.RenterFilesGet(true)
 	if err != nil {
 		return err
