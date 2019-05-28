@@ -3,22 +3,26 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
 
+	"gitlab.com/NebulousLabs/Sia/build"
 	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
 )
 
 var (
 	archive           bool
 	debug             bool
+	password          string
 	prefix            string
 	include           string
 	includeExtensions []string
 	exclude           string
 	excludeExtensions []string
+	siaDir            string
 )
 
 func Usage() {
@@ -27,6 +31,26 @@ func Usage() {
 
 `)
 	flag.PrintDefaults()
+}
+
+// findApiPassword looks for the API password via a flag, env variable, or the default apipassword file
+func findApiPassword() string {
+	if password != "" {
+		return password
+	} else {
+		envPassword := os.Getenv("SIA_API_PASSWORD")
+		if envPassword != "" {
+			return envPassword
+		} else {
+			fmt.Println("Checking for password in: ", build.APIPasswordFile(build.DefaultSiaDir()))
+			APIPasswordFile, err := ioutil.ReadFile(build.APIPasswordFile(build.DefaultSiaDir()))
+			if err != nil {
+				fmt.Println("Could not read API password file:", err)
+			}
+			return string(APIPasswordFile)
+		}
+	}
+
 }
 
 func testConnection(sc *sia.Client) {
@@ -66,7 +90,7 @@ func testConnection(sc *sia.Client) {
 func main() {
 	flag.Usage = Usage
 	address := flag.String("address", "127.0.0.1:9980", "Sia's API address")
-	password := flag.String("password", "", "Sia's API password")
+	flag.StringVar(&password, "password", "", "Sia's API password")
 	agent := flag.String("agent", "Sia-Agent", "Sia agent")
 	flag.BoolVar(&archive, "archive", false, "Files will not be removed from Sia, even if they are deleted locally")
 	flag.BoolVar(&debug, "debug", false, "Enable debug mode. Warning: generates a lot of output.")
@@ -77,7 +101,7 @@ func main() {
 	flag.Parse()
 
 	sc := sia.New(*address)
-	sc.Password = *password
+	sc.Password = findApiPassword()
 	sc.UserAgent = *agent
 	directory := os.Args[len(os.Args)-1]
 
