@@ -16,7 +16,8 @@ relevant binary, rename it to Siasync (Siasync.exe for Windows) and execute it i
 upload files. Siasync does some basic checking of the allowance and contracts to
 ensure it can upload, but it does not resolve any issues it finds with your
 wallet or contracts. If you're not sure how to run Sia and form storage
-contracts check out this blog post.*
+contracts check out [this blog
+post](https://blog.sia.tech/a-guide-to-sia-ui-v1-4-0-7ec3dfcae35a).*
 
 The most basic way to use Siasync is to have it stay 100% in sync with a local
 folder.
