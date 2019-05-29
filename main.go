@@ -35,25 +35,28 @@ func Usage() {
 
 // findApiPassword looks for the API password via a flag, env variable, or the default apipassword file
 func findApiPassword() string {
+	// password from cli -password flag
 	if password != "" {
 		return password
 	} else {
+		// password from environment variable
 		envPassword := os.Getenv("SIA_API_PASSWORD")
 		if envPassword != "" {
 			return envPassword
 		} else {
-			fmt.Println("Checking for password in: ", build.APIPasswordFile(build.DefaultSiaDir()))
+			// password from apipassword file
 			APIPasswordFile, err := ioutil.ReadFile(build.APIPasswordFile(build.DefaultSiaDir()))
 			if err != nil {
 				fmt.Println("Could not read API password file:", err)
 			}
-			return string(APIPasswordFile)
+			return strings.TrimSpace(string(APIPasswordFile))
 		}
 	}
 
 }
 
 func testConnection(sc *sia.Client) {
+	// Get siad Version
 	version, err := sc.DaemonVersionGet()
 	if err != nil {
 		panic(err)
@@ -109,6 +112,7 @@ func main() {
 	testConnection(sc)
 
 	includeExtensions = strings.Split(include, ",")
+	excludeExtensions = strings.Split(exclude, ",")
 
 	sf, err := NewSiafolder(directory, sc)
 	if err != nil {

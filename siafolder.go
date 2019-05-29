@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"gitlab.com/NebulousLabs/Sia/modules"
@@ -200,10 +201,11 @@ func (sf *SiaFolder) eventWatcher() {
 			if event.Op&fsnotify.Create == fsnotify.Create {
 				if goodForWrite {
 					log.Println("file creation detected, uploading", filename)
-					err = sf.handleCreate(filename)
-					if err != nil {
-						log.Println(err)
-					}
+					uploadRetry(sf, filename)
+					// err = sf.handleCreate(filename)
+					//if err != nil {
+					//	log.Println(err)
+					//}
 				}
 			}
 
@@ -211,6 +213,17 @@ func (sf *SiaFolder) eventWatcher() {
 			if err != nil {
 				log.Println("fsevents error:", err)
 			}
+		}
+	}
+}
+
+func uploadRetry(sf *SiaFolder, filename string) {
+	err := sf.handleCreate(filename)
+	if err != nil {
+		time.Sleep(10 * time.Second)
+		err2 := sf.handleCreate(filename)
+		if err2 != nil {
+			log.Println(err2)
 		}
 	}
 }
