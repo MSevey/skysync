@@ -9,7 +9,7 @@ if they are deleted locally. Best of all, it works on Windows, MacOS, and Linux.
 
 ## Installation
 Siasync Binaries can be found on [Github](https://github.com/tbenz9/siasync/releases).  Simply download the
-relevant binary and execute it in your operating systems' command line utility.
+relevant binary, rename it to Siasync (Siasync.exe for Windows) and execute it in your operating systems' command line utility.
 
 ## Usage
 *Siasync assumes that you already have a running siad daemon and are ready to
