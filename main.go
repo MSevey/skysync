@@ -23,6 +23,8 @@ var (
 	exclude           string
 	excludeExtensions []string
 	siaDir            string
+	dataPieces        uint64
+	parityPieces      uint64
 )
 
 func Usage() {
@@ -100,6 +102,8 @@ func main() {
 	flag.StringVar(&prefix, "subfolder", "siasync", "Folder on Sia to sync files too")
 	flag.StringVar(&include, "include", "", "Comma separated list of file extensions to copy, all other files will be ignored.")
 	flag.StringVar(&include, "exclude", "", "Comma separated list of file extensions to skip, all other files will be copied.")
+	flag.Uint64Var(&dataPieces, "data-pieces", 10, "Number of data pieces in erasure code")
+	flag.Uint64Var(&parityPieces, "parity-pieces", 30, "Number of parity pieces in erasure code")
 
 	flag.Parse()
 
