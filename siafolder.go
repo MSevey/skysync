@@ -272,7 +272,7 @@ func (sf *SiaFolder) handleCreate(file string) error {
 		return fmt.Errorf("error getting relative path to upload: %v\n", err)
 	}
 
-	err = sf.client.RenterUploadPost(abspath, newSiaPath(filepath.Join(prefix, relpath)), 10, 30)
+	err = sf.client.RenterUploadPost(abspath, newSiaPath(filepath.Join(prefix, relpath)), dataPieces, parityPieces)
 	if err != nil {
 		return fmt.Errorf("error uploading %v: %v\n", file, err)
 	}
