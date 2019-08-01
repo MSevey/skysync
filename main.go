@@ -25,6 +25,9 @@ var (
 	siaDir            string
 	dataPieces        uint64
 	parityPieces      uint64
+	sizeOnly          bool
+	syncOnly          bool
+	dryRun            bool
 )
 
 func Usage() {
@@ -104,6 +107,9 @@ func main() {
 	flag.StringVar(&exclude, "exclude", "", "Comma separated list of file extensions to skip, all other files will be copied.")
 	flag.Uint64Var(&dataPieces, "data-pieces", 10, "Number of data pieces in erasure code")
 	flag.Uint64Var(&parityPieces, "parity-pieces", 30, "Number of parity pieces in erasure code")
+	flag.BoolVar(&sizeOnly, "size-only", false, "Compare only based on file size and not on checksum")
+	flag.BoolVar(&syncOnly, "sync-only", false, "Sync, don't monitor directory for changes changes")
+	flag.BoolVar(&dryRun, "dry-run", false, "Show what would have been uploaded without changing files in Sia")
 
 	flag.Parse()
 
@@ -124,10 +130,13 @@ func main() {
 	}
 	defer sf.Close()
 
-	log.Println("watching for changes to ", directory)
+	if !syncOnly {
+		log.Println("watching for changes to ", directory)
 
-	done := make(chan os.Signal)
-	signal.Notify(done, os.Interrupt)
-	<-done
-	fmt.Println("caught quit signal, exiting...")
+		done := make(chan os.Signal)
+		signal.Notify(done, os.Interrupt)
+		<-done
+		fmt.Println("caught quit signal, exiting...")
+	}
+	log.Println("Done")
 }
