@@ -1,6 +1,6 @@
-# [![Siasync Logo](https://i.imgur.com/bUJTPqU.png)](https://medium.com/@tbenz9/introducing-siasync-27452e90682f) Siasync v1.0
+# [![Siasync Logo](https://i.imgur.com/bUJTPqU.png)](https://medium.com/@tbenz9/introducing-siasync-27452e90682f) Siasync v1.0.1
 
-Siasync is a new utility that will monitor a folder and synchronize its contents
+Siasync is a utility that will monitor a folder and synchronize its contents
 to the [Sia network](https://sia.tech/). As new files are created or removed it
 will keep Sia in sync with the local source folder. Siasync also supports more
 advanced features like only syncing certain file extensions, or excluding
@@ -71,30 +71,44 @@ A full list of Siasync commands can be found with `Siasync -h`
 #> siasync -h
 usage: siasync <flags> <directory-to-sync>
   for example: ./siasync -password abcd123 /tmp/sync/to/sia
+
   -address string
         Sia's API address (default "127.0.0.1:9980")
   -agent string
         Sia agent (default "Sia-Agent")
   -archive
         Files will not be removed from Sia, even if they are deleted locally
+  -data-pieces uint
+        Number of data pieces in erasure code (default 10)
+  -debug
+        Enable debug mode. Warning: generates a lot of output.
+  -dry-run
+        Show what would have been uploaded without changing files in Sia
   -exclude string
-        Comma separated list of file extensions to skip, all other files will be
-copied.
+        Comma separated list of file extensions to skip, all other files will be copied.
   -include string
-        Comma separated list of file extensions to copy, all other files will be
-ignored.
+        Comma separated list of file extensions to copy, all other files will be ignored.
+  -parity-pieces uint
+        Number of parity pieces in erasure code (default 30)
   -password string
         Sia's API password
+  -size-only
+        Compare only based on file size and not on checksum
   -subfolder string
         Folder on Sia to sync files too (default "siasync")
+  -sync-only
+        Sync, don't monitor directory for changes changes
 ```
 
 ## Building from Source
 Siasync is written in Go, you have have a working Go installation before
 attempting to build Siasync from source.
+
 #### build Siasync dependencies
 `make dependencies`
+
 #### build Siasync
 `make`
+
 ## License
 The MIT License (MIT)
