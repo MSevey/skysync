@@ -30,6 +30,7 @@ var (
 	dryRun            bool
 )
 
+// Usage prints out an example usage command and the defaults for the flags
 func Usage() {
 	fmt.Printf(`usage: siasync <flags> <directory-to-sync>
   for example: ./siasync -password abcd123 /tmp/sync/to/sia
@@ -38,28 +39,29 @@ func Usage() {
 	flag.PrintDefaults()
 }
 
-// findApiPassword looks for the API password via a flag, env variable, or the default apipassword file
-func findApiPassword() string {
+// findAPIPassword looks for the API password via a flag, env variable, or the
+// default apipassword file
+func findAPIPassword() string {
 	// password from cli -password flag
 	if password != "" {
 		return password
-	} else {
-		// password from environment variable
-		envPassword := os.Getenv("SIA_API_PASSWORD")
-		if envPassword != "" {
-			return envPassword
-		} else {
-			// password from apipassword file
-			APIPasswordFile, err := ioutil.ReadFile(build.APIPasswordFile(build.DefaultSiaDir()))
-			if err != nil {
-				fmt.Println("Could not read API password file:", err)
-			}
-			return strings.TrimSpace(string(APIPasswordFile))
-		}
 	}
 
+	// password from environment variable
+	envPassword := os.Getenv("SIA_API_PASSWORD")
+	if envPassword != "" {
+		return envPassword
+	}
+
+	// password from apipassword file
+	APIPasswordFile, err := ioutil.ReadFile(build.APIPasswordFile(build.DefaultSiaDir()))
+	if err != nil {
+		fmt.Println("Could not read API password file:", err)
+	}
+	return strings.TrimSpace(string(APIPasswordFile))
 }
 
+// testConnection test the connection to the sia network
 func testConnection(sc *sia.Client) {
 	// Get siad Version
 	version, err := sc.DaemonVersionGet()
@@ -85,13 +87,7 @@ func testConnection(sc *sia.Client) {
 	if len(rc.ActiveContracts) == 0 {
 		log.Fatal("No active contracts")
 	}
-	var GoodForUpload = 0
-	for _, c := range rc.ActiveContracts {
-		if c.GoodForUpload {
-			GoodForUpload += 1
-		}
-	}
-	log.Println(GoodForUpload, " contracts are ready for upload")
+	log.Println(len(rc.ActiveContracts), " contracts are ready for upload")
 
 }
 
@@ -108,13 +104,13 @@ func main() {
 	flag.Uint64Var(&dataPieces, "data-pieces", 10, "Number of data pieces in erasure code")
 	flag.Uint64Var(&parityPieces, "parity-pieces", 30, "Number of parity pieces in erasure code")
 	flag.BoolVar(&sizeOnly, "size-only", false, "Compare only based on file size and not on checksum")
-	flag.BoolVar(&syncOnly, "sync-only", false, "Sync, don't monitor directory for changes changes")
+	flag.BoolVar(&syncOnly, "sync-only", false, "Sync, don't monitor directory for changes")
 	flag.BoolVar(&dryRun, "dry-run", false, "Show what would have been uploaded without changing files in Sia")
 
 	flag.Parse()
 
 	sc := sia.New(*address)
-	sc.Password = findApiPassword()
+	sc.Password = findAPIPassword()
 	sc.UserAgent = *agent
 	directory := os.Args[len(os.Args)-1]
 

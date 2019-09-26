@@ -97,7 +97,7 @@ usage: siasync <flags> <directory-to-sync>
   -subfolder string
         Folder on Sia to sync files too (default "siasync")
   -sync-only
-        Sync, don't monitor directory for changes changes
+        Sync, don't monitor directory for changes
 ```
 
 ## Building from Source
