@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -15,6 +16,12 @@ import (
 	"gitlab.com/NebulousLabs/Sia/modules"
 
 	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
+)
+
+var (
+	// errNoFiles is the error that will be returned if the siasync directory on
+	// the Sia network has not been created yet by the first upload.
+	errNoFiles = errors.New("no such file or directory")
 )
 
 // SiaFolder is a folder that is synchronized to a Sia node.
@@ -413,7 +420,8 @@ func (sf *SiaFolder) handleRemove(file string) error {
 // every file in files is uploaded to the Sia node.
 func (sf *SiaFolder) uploadNonExisting() error {
 	renterFiles, err := sf.getSiaFiles()
-	if err != nil {
+	noSyncFiles := strings.Contains(err.Error(), errNoFiles.Error())
+	if err != nil && !noSyncFiles {
 		return err
 	}
 
@@ -445,7 +453,8 @@ func (sf *SiaFolder) uploadNonExisting() error {
 // Sia is different from local file
 func (sf *SiaFolder) uploadChanged() error {
 	renterFiles, err := sf.getSiaFiles()
-	if err != nil {
+	noSyncFiles := strings.Contains(err.Error(), errNoFiles.Error())
+	if err != nil && !noSyncFiles {
 		return err
 	}
 
@@ -480,7 +489,8 @@ func (sf *SiaFolder) uploadChanged() error {
 // local directory anymore
 func (sf *SiaFolder) removeDeleted() error {
 	renterFiles, err := sf.getSiaFiles()
-	if err != nil {
+	noSyncFiles := strings.Contains(err.Error(), errNoFiles.Error())
+	if err != nil && !noSyncFiles {
 		return err
 	}
 
@@ -507,7 +517,7 @@ func (sf *SiaFolder) removeDeleted() error {
 
 // filters Sia remote files, only files that match prefix parameter are returned
 func (sf *SiaFolder) getSiaFiles() (map[modules.SiaPath]modules.FileInfo, error) {
-	siaSyncDir, err := sf.client.RenterGetDir(getSiaPath(prefix))
+	siaSyncDir, err := sf.client.RenterGetDir(newSiaPath(prefix))
 	if err != nil {
 		return nil, err
 	}
