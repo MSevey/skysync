@@ -420,8 +420,7 @@ func (sf *SiaFolder) handleRemove(file string) error {
 // every file in files is uploaded to the Sia node.
 func (sf *SiaFolder) uploadNonExisting() error {
 	renterFiles, err := sf.getSiaFiles()
-	noSyncFiles := strings.Contains(err.Error(), errNoFiles.Error())
-	if err != nil && !noSyncFiles {
+	if err != nil && strings.Contains(err.Error(), errNoFiles.Error()) {
 		return err
 	}
 
@@ -453,8 +452,7 @@ func (sf *SiaFolder) uploadNonExisting() error {
 // Sia is different from local file
 func (sf *SiaFolder) uploadChanged() error {
 	renterFiles, err := sf.getSiaFiles()
-	noSyncFiles := strings.Contains(err.Error(), errNoFiles.Error())
-	if err != nil && !noSyncFiles {
+	if err != nil && strings.Contains(err.Error(), errNoFiles.Error()) {
 		return err
 	}
 
@@ -489,8 +487,7 @@ func (sf *SiaFolder) uploadChanged() error {
 // local directory anymore
 func (sf *SiaFolder) removeDeleted() error {
 	renterFiles, err := sf.getSiaFiles()
-	noSyncFiles := strings.Contains(err.Error(), errNoFiles.Error())
-	if err != nil && !noSyncFiles {
+	if err != nil && strings.Contains(err.Error(), errNoFiles.Error()) {
 		return err
 	}
 
