@@ -14,6 +14,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"gitlab.com/NebulousLabs/Sia/modules"
+	"gitlab.com/NebulousLabs/Sia/modules/renter/siafile"
 
 	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
 )
@@ -381,6 +382,9 @@ func (sf *SiaFolder) handleCreate(file string) error {
 
 	if !dryRun {
 		err = sf.client.RenterUploadPost(abspath, getSiaPath(relpath), dataPieces, parityPieces)
+		if err.Error() == siafile.ErrPathOverload.Error() {
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("error uploading %v: %v\n", file, err)
 		}
