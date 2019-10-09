@@ -4,11 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"gitlab.com/NebulousLabs/Sia/build"
 	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
 )
@@ -30,6 +30,24 @@ var (
 	dryRun            bool
 )
 
+// log is the logger for outputting info to the terminal
+var log *logrus.Logger
+
+// initLogger initializes the logger
+func initLogger(debug bool) {
+	log = logrus.New()
+
+	// Define logger level
+	if debug {
+		log.SetLevel(logrus.DebugLevel)
+	} else {
+		log.SetLevel(logrus.InfoLevel)
+	}
+
+	// Print out file names and line numbers
+	log.SetReportCaller(true)
+}
+
 // Usage prints out an example usage command and the defaults for the flags
 func Usage() {
 	fmt.Printf(`usage: siasync <flags> <directory-to-sync>
@@ -44,19 +62,23 @@ func Usage() {
 func findAPIPassword() string {
 	// password from cli -password flag
 	if password != "" {
+		log.Info("Using API password submitted by user")
 		return password
 	}
 
 	// password from environment variable
 	envPassword := os.Getenv("SIA_API_PASSWORD")
 	if envPassword != "" {
+		log.Info("Using Environnement Variable API password")
 		return envPassword
 	}
 
 	// password from apipassword file
 	APIPasswordFile, err := ioutil.ReadFile(build.APIPasswordFile(build.DefaultSiaDir()))
 	if err != nil {
-		fmt.Println("Could not read API password file:", err)
+		log.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Error("Could not read API password file")
 	}
 	return strings.TrimSpace(string(APIPasswordFile))
 }
@@ -66,14 +88,20 @@ func testConnection(sc *sia.Client) {
 	// Get siad Version
 	version, err := sc.DaemonVersionGet()
 	if err != nil {
-		panic(err)
+		log.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Panic("Could not get the Daemon version")
 	}
-	log.Println("Connected to Sia ", version.Version)
+	log.WithFields(logrus.Fields{
+		"version": version.Version,
+	}).Info("Connected to Sia")
 
 	// Check Allowance
 	rg, err := sc.RenterGet()
 	if err != nil {
-		log.Fatal("Could not get renter info:", err)
+		log.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Fatal("Could not get renter info")
 	}
 	if rg.Settings.Allowance.Funds.IsZero() {
 		log.Fatal("Cannot upload: No allowance available")
@@ -82,12 +110,16 @@ func testConnection(sc *sia.Client) {
 	// Check Contracts
 	rc, err := sc.RenterDisabledContractsGet()
 	if err != nil {
-		log.Fatal("Could not get renter contracts", err)
+		log.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Fatal("Could not get renter contracts")
 	}
 	if len(rc.ActiveContracts) == 0 {
 		log.Fatal("No active contracts")
 	}
-	log.Println(len(rc.ActiveContracts), " contracts are ready for upload")
+	log.WithFields(logrus.Fields{
+		"contracts": len(rc.ActiveContracts),
+	}).Info("contracts are ready for upload")
 
 }
 
@@ -109,6 +141,9 @@ func main() {
 
 	flag.Parse()
 
+	// Init the logger
+	initLogger(debug)
+
 	sc := sia.New(*address)
 	sc.Password = findAPIPassword()
 	sc.UserAgent = *agent
@@ -122,17 +157,21 @@ func main() {
 
 	sf, err := NewSiafolder(directory, sc)
 	if err != nil {
-		log.Fatal(err)
+		log.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Fatal("Could not create new Siafolder")
 	}
 	defer sf.Close()
 
 	if !syncOnly {
-		log.Println("watching for changes to ", directory)
+		log.WithFields(logrus.Fields{
+			"directory": directory,
+		}).Info("Watching Directory for changes")
 
 		done := make(chan os.Signal)
 		signal.Notify(done, os.Interrupt)
 		<-done
-		fmt.Println("caught quit signal, exiting...")
+		log.Error("caught quit signal, exiting...")
 	}
-	log.Println("Done")
+	log.Info("Done")
 }
