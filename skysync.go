@@ -22,18 +22,17 @@ type (
 	// SkySync is a struct that contains information needed to ensure a directory
 	// is synced with Skynet
 	SkySync struct {
-		root    string
-		opts    syncOpts
-		watcher *fsnotify.Watcher
-
 		filesToUpload map[string]struct{}
-		// skyfiles is a map of file path to sky link
-		skyfiles  map[string]string
+		opts          syncOpts
+		root          string
+		skyfiles      map[string]string
+		watcher       *fsnotify.Watcher
+
 		closeChan chan struct{}
 	}
 )
 
-// contains checks if a string exists in a []strings.
+// contains is a helper that checks if a string exists in a []strings.
 func contains(a []string, x string) bool {
 	for _, n := range a {
 		if x == n {
@@ -67,6 +66,7 @@ func (ss *SkySync) checkFile(path string) (bool, error) {
 
 // NewSkySync creates a new SkySync
 func NewSkySync(path string, opts syncOpts) (*SkySync, error) {
+	// Get the absolute path of the directory
 	abspath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
@@ -76,6 +76,7 @@ func NewSkySync(path string, opts syncOpts) (*SkySync, error) {
 		"abspath": abspath,
 	}).Debug("Path Provided and abspath found")
 
+	// Initialize SkySync
 	ss := &SkySync{
 		root:          abspath,
 		opts:          opts,
@@ -103,6 +104,8 @@ func NewSkySync(path string, opts syncOpts) (*SkySync, error) {
 
 		ss.watcher = watcher
 	}
+
+	// Save SkySync
 	return ss, ss.save()
 }
 
@@ -140,6 +143,8 @@ func (ss *SkySync) UploadDir() error {
 		if _, ok := ss.skyfiles[walkpath]; ok {
 			return nil
 		}
+
+		// Add file to list of files to be uploaded
 		log.WithFields(logrus.Fields{
 			"file": walkpath,
 		}).Debug("Adding file to files to be uploaded")
@@ -150,6 +155,7 @@ func (ss *SkySync) UploadDir() error {
 		return err
 	}
 
+	// Uploaded all pending files to SkyNet
 	log.Info("Uploading files To Skynet")
 	err = ss.uploadNonExisting()
 	if err != nil {
@@ -168,10 +174,10 @@ func (ss *SkySync) Close() error {
 	return nil
 }
 
-// uploadNonExisting runs once and performs any uploads required to ensure
-// every file in files is uploaded to the Sia node.
+// uploadNonExisting uploads any pending files to SkyNet.
 func (ss *SkySync) uploadNonExisting() error {
 	for file := range ss.filesToUpload {
+		// Check if the file is good for upload
 		goodForUpload, err := ss.checkFile(filepath.Clean(file))
 		if err != nil {
 			log.WithFields(logrus.Fields{
@@ -185,6 +191,7 @@ func (ss *SkySync) uploadNonExisting() error {
 			continue
 		}
 
+		// Upload file to SkyNet
 		log.WithFields(logrus.Fields{
 			"file": file,
 		}).Info("uploading file to skynet")

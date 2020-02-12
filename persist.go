@@ -9,19 +9,24 @@ import (
 )
 
 var (
+	// persistMetadata is the persistence metadata for the SkySync
 	persistMetadata = persist.Metadata{
 		Header:  "SkySync Persistence",
 		Version: "v0.1.0",
 	}
 
+	// persistFileName is the filename for the persistence file on disk
 	persistFileName = filepath.Join(skySyncPersistDir(), "skysync.json")
 )
 
 type (
+	// persistedFile is the persisted file information that is stored on disk
 	persistedFile struct {
 		Filename string `json:"filename"`
 		SkyLink  string `json:"skylink"`
 	}
+
+	// persistence is the data that is stored on disk for the SkySync
 	persistence struct {
 		Files []persistedFile `json:"files"`
 	}
@@ -62,6 +67,7 @@ func (ss *SkySync) load() error {
 	return nil
 }
 
+// persistData returns the data to be stored on disk in the persistence format
 func (ss *SkySync) persistData() persistence {
 	var data persistence
 	for file, skylink := range ss.skyfiles {

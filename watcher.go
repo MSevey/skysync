@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// newWatcher creates and new fsnotify.Watcher for the path provided
 func newWatcher(path string) (*fsnotify.Watcher, error) {
 	log.WithFields(logrus.Fields{
 		"directory": path,
@@ -24,7 +25,7 @@ func newWatcher(path string) (*fsnotify.Watcher, error) {
 }
 
 // eventWatcher continuously listens on the SkySync's watcher channels and
-// performs the necessary upload/delete operations.
+// handles events.
 func (ss *SkySync) eventWatcher() {
 	if ss.watcher == nil {
 		return
@@ -48,6 +49,7 @@ func (ss *SkySync) eventWatcher() {
 
 // handleWatchEvent handles the event returned from the watcher Events Chan
 func (ss *SkySync) handleWatchEvent(event fsnotify.Event) {
+	// Check to see if it is a close, update, or write event
 	closeEvent := event.Op&fsnotify.Close == fsnotify.Close
 	updateEvent := event.Op&fsnotify.Update == fsnotify.Update
 	writeEvent := event.Op&fsnotify.Write == fsnotify.Write
@@ -56,29 +58,34 @@ func (ss *SkySync) handleWatchEvent(event fsnotify.Event) {
 		"updateEvent": updateEvent,
 		"writeEvent":  writeEvent,
 	}).Debug("fsnotify event")
-	// Check for close and update events to know that the change is complete
+
+	// If it is not a close, update, or write event there is nothing to do
 	if !closeEvent && !updateEvent && !writeEvent {
 		return
 	}
 
-	// TODO - filename is relative? do we need to make abs path?
+	// Get the filename from the event
 	filename := filepath.Clean(event.Name)
 	log.WithFields(logrus.Fields{
 		"filename": filename,
 	}).Info("file found by event watcher")
+
+	// If it is a directory, add it to the watcher
 	f, err := os.Stat(filename)
 	if err == nil && f.IsDir() {
 		ss.watcher.Add(filename)
 		return
 	}
-	goodForWrite, err := ss.checkFile(filename)
+
+	// Check to see if the file is good to upload
+	goodForUpload, err := ss.checkFile(filename)
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			"error": err.Error(),
 		}).Error("Error with checkFile")
 		return
 	}
-	if !goodForWrite {
+	if !goodForUpload {
 		return
 	}
 
@@ -87,11 +94,8 @@ func (ss *SkySync) handleWatchEvent(event fsnotify.Event) {
 		log.WithFields(logrus.Fields{
 			"filename": filename,
 		}).Info("file already a skyfile")
-		// TODO - figure out how to handle, should the skyfile be re-uploaded as any
-		// changes to a file will result in the skyfile being different?
-		//
-		// Could try downloading the file and doing some sort of checksum? Might be
-		// a V2 thing
+		// TODO - once SkyNet has better support for versioning we could updated
+		// the file
 		return
 	}
 
