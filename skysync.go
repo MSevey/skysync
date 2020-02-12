@@ -10,12 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-// TODO
-// - create persistence filenames and structure.
-// - persistence should be in the root directory
-)
-
 type (
 	// syncOpts contains the options for syncing
 	syncOpts struct {
@@ -91,6 +85,15 @@ func NewSkySync(path string, opts syncOpts) (*SkySync, error) {
 		watcher:       nil,
 	}
 
+	// Try and load persistence
+	err = ss.load()
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			"err": err.Error(),
+		}).Debug("error loading persistence")
+		return nil, err
+	}
+
 	// watch for file changes
 	if !ss.opts.syncOnly {
 		watcher, err := newWatcher(ss.root)
@@ -100,7 +103,7 @@ func NewSkySync(path string, opts syncOpts) (*SkySync, error) {
 
 		ss.watcher = watcher
 	}
-	return ss, nil
+	return ss, ss.save()
 }
 
 // UploadDir recursively walks the directory and uploads files to skynet
@@ -186,6 +189,8 @@ func (ss *SkySync) uploadNonExisting() error {
 			"file": file,
 		}).Info("uploading file to skynet")
 		if dryRun {
+			ss.skyfiles[file] = ""
+			delete(ss.filesToUpload, file)
 			continue
 		}
 		skylink, err := skynet.UploadFile(file, skynet.DefaultUploadOptions)
@@ -200,6 +205,6 @@ func (ss *SkySync) uploadNonExisting() error {
 		ss.skyfiles[file] = skylink
 		delete(ss.filesToUpload, file)
 	}
-	// TODO - persist to disk
-	return nil
+	// Persist to disk
+	return ss.save()
 }

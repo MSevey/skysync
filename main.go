@@ -10,18 +10,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// TODO
+//  - Current the default skynet upload options are used. This could be updated
+//  to accept custom skynet upload options
+
 var (
-	debug   bool
-	dryRun  bool
-	exclude string
-	include string
-	// portalURL string
+	debug    bool
+	dryRun   bool
+	exclude  string
+	include  string
 	siaDir   string
 	syncOnly bool
 )
-
-// TODO
-// - persist list of filenames to skylinks
 
 // log is the logger for outputting info to the terminal
 var log *logrus.Logger
@@ -56,7 +56,6 @@ func main() {
 	flag.BoolVar(&dryRun, "dry-run", false, "Show what would have been uploaded without changing files in Sia")
 	flag.StringVar(&exclude, "exclude", "", "Comma separated list of file extensions to skip, all other files will be copied.")
 	flag.StringVar(&include, "include", "", "Comma separated list of file extensions to copy, all other files will be ignored.")
-	// flag.StringVar(&portalURL, "portal-url", "", "URL of the skynet portal to use if not the default")
 	flag.BoolVar(&syncOnly, "sync-only", false, "Sync, don't monitor directory for changes")
 
 	flag.Parse()
@@ -66,6 +65,7 @@ func main() {
 
 	directory := os.Args[len(os.Args)-1]
 
+	// Log the parse flags
 	log.WithFields(logrus.Fields{
 		"debug":     debug,
 		"dryrun":    dryRun,
@@ -73,8 +73,9 @@ func main() {
 		"include":   include,
 		"syncOnly":  syncOnly,
 		"directory": directory,
-	}).Info("flags parsed")
+	}).Debug("flags parsed")
 
+	// Set the parsed options
 	opts := syncOpts{
 		syncOnly: syncOnly,
 	}
