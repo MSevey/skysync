@@ -14,10 +14,4 @@ release: $(PLATFORMS)
 $(PLATFORMS):
 	GOOS=$(os) GOARCH=$(arch) go build -o 'Skysync-$(os)-$(arch)' *.go
 
-dependencies:
-	go get -u github.com/fishman/fsnotify
-	go get -u github.com/NebulousLabs/skynet
-	go get -u gitlab.com/NebulousLabs/Sia/build 
-	go get -u github.com/sirupsen/logrus
-
 .PHONY:	release	$(PLATFORMS)
